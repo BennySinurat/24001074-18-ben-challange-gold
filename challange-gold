@@ -1,0 +1,206 @@
+!pip install pyngrok
+# !ngrok authtoken '1tNQ4Yq1DI7QsGlrYXTSiO6aPVV_4qxeC5KNSP34KuRW6RapB'
+!ngrok authtoken '1tNQ4Yq1DI7QsGlrYXTSiO6aPVV_4qxeC5KNSP34KuRW6RapB'
+import getpass
+
+from pyngrok import ngrok, conf
+
+print("Enter your authtoken, which can be copied from https://dashboard.ngrok.com/auth")
+conf.get_default().auth_token = getpass.getpass()
+
+# Open a TCP ngrok tunnel to the SSH server
+connection_string = ngrok.connect("22", "tcp").public_url
+
+ssh_url, port = connection_string.strip("tcp://").split(":")
+print(f" * ngrok tunnel available, access with `ssh root@{ssh_url} -p{port}`")
+import os
+import threading
+from flask import Flask, request, jsonify
+from pyngrok import ngrok
+import pandas as pd
+
+class DataCleaningApp:
+    def __init__(self):
+        self.app = Flask(__name__)
+        self.port = "5000"
+
+        # Open a ngrok tunnel to the HTTP server
+        self.public_url = ngrok.connect(self.port).public_url
+        print(f"* ngrok tunnel \"{self.public_url}\" -> \"http://127.0.0.1:{self.port}\"")
+
+        # Update any base URLs to use the public ngrok URL
+        self.app.config["BASE_URL"] = self.public_url
+
+        # Define list of bad words and their polite replacements
+        bad_words = {
+    'alay': 'berlebihan',
+    'ampas': 'sampah',
+    'buta': 'tidak bisa melihat',
+    'keparat': 'tidak baik',
+    'anjing': 'anjing (hewan)',
+    'anjir': 'aduh',
+    'babi': 'babi (hewan)',
+    'bacot': 'banyak bicara',
+    'bajingan': 'tidak baik',
+    'banci': 'sensitif',
+    'bandot': 'pelacur',
+    'buaya': 'buaya (hewan)',
+    'bangkai': 'mayat',
+    'bangsat': 'tidak baik',
+    'bego': 'tidak pintar',
+    'bejat': 'tidak baik',
+    'bencong': 'sensitif',
+    'berak': 'feses',
+    'bisu': 'tidak bisa berbicara',
+    'celeng': 'babi (hewan)',
+    'jancuk': 'kejadian tidak menyenangkan',
+    'bodoh': 'tidak pintar',
+    'berengsek': 'tidak baik',
+    'budek': 'tidak bisa mendengar',
+    'burik': 'jelek',
+    'jamban': 'toilet',
+    'cocot': 'kata-kata tidak pantas',
+    'congor': 'berbicara terlalu banyak',
+    'culun': 'biasa',
+    'cupu': 'biasa',
+    'dongok': 'bodoh',
+    'dungu': 'tidak pintar',
+    'edan': 'tidak waras',
+    'tai': 'feses',
+    'ngewe': 'berhubungan intim',
+    'geblek': 'bodoh',
+    'gembel': 'orang miskin',
+    'gila': 'tidak waras',
+    'goblok': 'bodoh',
+    'iblis': 'setan',
+    'idiot': 'bodoh',
+    'jablay': 'wanita penghibur',
+    'jembud': 'biasa',
+    'jembut': 'bulu kemaluan',
+    'jijik': 'tidak nyaman',
+    'kacrut': 'jelek',
+    'kafir': 'tidak beriman',
+    'modar': 'rusak',
+    'kampang': 'tidak penting',
+    'kampret': 'kejadian buruk',
+    'kampungan': 'biasa',
+    'kimak': 'tidak baik',
+    'kontol': 'alat kelamin laki-laki',
+    'kunti': 'kecil',
+    'tuyul': 'makhluk halus',
+    'kunyuk': 'tidak baik',
+    'mampus': 'mati',
+    'memek': 'alat kelamin wanita',
+    'monyet': 'monyet (hewan)',
+    'najis': 'tidak bersih',
+    'nete': 'tidak bersih',
+    'ngentot': 'berhubungan intim',
+    'noob': 'tidak berpengalaman',
+    'pecun': 'biasa',
+    'perek': 'wanita murahan',
+    'sampah': 'tidak berguna',
+    'sarap': 'biasa',
+    'setan': 'setan',
+    'silit': 'biasa',
+    'bokong': 'pantat',
+    'sinting': 'tidak waras',
+    'sompret': 'biasa',
+    'sontoloyo': 'tidak waras',
+    'terkutuk': 'tidak baik',
+    'titit': 'alat kelamin laki-laki',
+    'pantat': 'bokong',
+    'tolol': 'bodoh',
+    'udik': 'biasa',
+    'antek': 'pengikut',
+    'asing': 'tidak dikenal',
+    'ateis': 'tidak beragama',
+    'sitip': 'biasa',
+    'autis': 'tidak waras',
+    'picek': 'biasa',
+    'ayam kampus': 'biasa',
+    'bani kotak': 'biasa',
+    'bispak': 'wanita penghibur',
+    'bisyar': 'wanita penghibur',
+    'bokep': 'film porno',
+    'bong': 'alat hisap',
+    'cacat': 'tidak sempurna',
+    'cct': 'biasa',
+    'cebong': 'tidak baik',
+    'taplak': 'biasa',
+    'cungkring': 'biasa',
+    'gay': 'homoseksual',
+    'gembrot': 'gemuk',
+    'gendut': 'gemuk',
+    'hina': 'tidak baik',
+    'homo': 'homoseksual',
+    'komunis': 'penganut komunisme',
+    'koreng': 'biasa',
+    'krempeng': 'biasa',
+    'lengser': 'biasa',
+    'lesbi': 'lesbian',
+    'lgbt': 'LGBT',
+    'lonte': 'wanita penghibur',
+    'mucikari': 'penyedia wanita penghibur',
+    'munafik': 'tidak jujur',
+    'ngaceng': 'berdiri tegak',
+    'nista': 'tidak menghormati',
+    'kejam': 'tidak baik',
+    'onta': 'hewan tunggangan',
+    'panastak': 'biasa',
+    'panasbung': 'biasa',
+    'bani': 'biasa',
+    'pasukan nasi': 'biasa',
+    'porno': 'film porno',
+    'seks': 'hubungan intim',
+    'rejim': 'pemerintahan',
+    'rezim': 'pemerintahan',
+    'sange': 'terangsang',
+    'serbet': 'biasa',
+    'sipit': 'mata sipit',
+    'transgender': 'transgender'
+}
+
+
+        # Define Flask routes
+        @self.app.route("/")
+        def index():
+            return "Hello from Colab!"
+
+        @self.app.route('/clean-data', methods=['POST'])
+        def clean_data():
+            # Check if file was sent with the request
+            if 'file' not in request.files:
+                return jsonify({'error': 'No file part'})
+
+            file = request.files['file']
+
+            # Check if file has allowed extension (e.g., CSV)
+            if file.filename == '':
+                return jsonify({'error': 'No selected file'})
+
+            if file:
+                # Save the uploaded CSV file
+                file_path = 'uploaded_file.csv'
+                file.save(file_path)
+
+                # Read CSV into pandas DataFrame
+                df = pd.read_csv(file_path)
+
+                # Perform cleaning operation (for demonstration, let's say we remove rows with missing values)
+                cleaned_df = df.dropna()
+
+                # Replace bad words with polite ones
+                for word, replacement in bad_words.items():
+                    cleaned_df = cleaned_df.replace(word, replacement)
+
+                # Save cleaned data to a new CSV file
+                cleaned_file_path = 'cleaned_file.csv'
+                cleaned_df.to_csv(cleaned_file_path, index=False)
+
+                return jsonify({'message': 'Data cleaned successfully', 'cleaned_file': cleaned_file_path})
+
+        # Start the Flask server in a new thread
+        threading.Thread(target=self.app.run, kwargs={"host": "0.0.0.0", "port": self.port, "use_reloader": False}).start()
+
+if __name__ == "__main__":
+    data_cleaning_app = DataCleaningApp()
